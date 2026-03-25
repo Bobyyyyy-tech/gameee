@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Big Minecraft</title>
+<style>
+body{margin:0;overflow:hidden;}
+</style>
+</head>
+<body>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script type="module">
+
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js"
+import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/controls/PointerLockControls.js"
+
+const socket = io()
+
+// ===================== SCENE =====================
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x87ceeb)
+scene.fog = new THREE.Fog(0x87ceeb, 20, 150)
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000)
+
+const renderer = new THREE.WebGLRenderer({ antialias:true })
+renderer.setSize(innerWidth, innerHeight)
+document.body.appendChild(renderer.domElement)
+
+window.addEventListener("resize", ()=>{
+camera.aspect = innerWidth/innerHeight
+camera.updateProjectionMatrix()
+renderer.setSize(innerWidth, innerHeight)
+})
+
+// ===================== LIGHT =====================
+scene.add(new THREE.AmbientLight(0xffffff,0.5))
+
+const sun = new THREE.DirectionalLight(0xffffff,1)
+sun.position.set(20,40,20)
+scene.add(sun)
+
+// ===================== CONTROLS =====================
+const controls = new PointerLockControls(camera, document.body)
+scene.add(controls.getObject())
+
+controls.getObject().position.set(0,10,10)
+
+setTimeout(()=>controls.lock(),100)
+document.addEventListener("click",()=>{
+if(!controls.isLocked) controls.lock()
+})
+
+// ===================== MOVEMENT =====================
+let keys={}
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true)
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false)
+
+// ===================== WORLD =====================
+const blocks={}
+function key(x,y,z){return x+","+y+","+z}
+
+const materials={
+grass:new THREE.MeshLambertMaterial({color:0x55aa33}),
+dirt:new THREE.MeshLambertMaterial({color:0x8B4513}),
+stone:new THREE.MeshLambertMaterial({color:0x888888})
+}
+
+// terrain
+for(let x=-30;x<30;x++){
+for(let z=-30;z<30;z++){
+
+let h=Math.floor(Math.sin(x*0.2)*3 + Math.cos(z*0.2)*3 + 6)
+
+for(let y=0;y<h;y++){
+
+let type = y===h-1 ? "grass" : (y>h-4 ? "dirt" : "stone")
+
+createBlock(x,y,z,type)
+
+}
+
+}
+}
+
+function createBlock(x,y,z,type){
+
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(1,1,1),
+materials[type]
+)
+
+mesh.position.set(x,y,z)
+scene.add(mesh)
+
+blocks[key(x,y,z)] = mesh
+}
+
+// ===================== BREAK / PLACE =====================
+const raycaster = new THREE.Raycaster()
+
+window.addEventListener("mousedown",()=>{
+
+raycaster.setFromCamera({x:0,y:0},camera)
+
+const hits=raycaster.intersectObjects(Object.values(blocks))
+
+if(hits.length>0){
+
+const p=hits[0].object.position
+scene.remove(hits[0].object)
+delete blocks[key(p.x,p.y,p.z)]
+
+}
+
+})
+
+window.addEventListener("contextmenu",e=>{
+e.preventDefault()
+
+raycaster.setFromCamera({x:0,y:0},camera)
+
+const hits=raycaster.intersectObjects(Object.values(blocks))
+
+if(hits.length>0){
+
+const hit=hits[0]
+const p=hit.object.position
+const n=hit.face.normal
+
+createBlock(
+p.x+n.x,
+p.y+n.y,
+p.z+n.z,
+"grass"
+)
+
+}
+
+})
+
+// ===================== PLAYERS =====================
+let players={}
+let myId=null
+
+function createPlayer(){
+
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(1,2,1),
+new THREE.MeshLambertMaterial({color:0x00ffff})
+)
+
+scene.add(mesh)
+return mesh
+}
+
+socket.on("init",data=>{
+
+myId=data.id
+
+for(let id in data.players){
+players[id]=createPlayer()
+}
+
+})
+
+socket.on("join",data=>{
+players[data.id]=createPlayer()
+})
+
+socket.on("move",data=>{
+if(players[data.id]){
+players[data.id].position.set(data.x,data.y,data.z)
+}
+})
+
+socket.on("leave",id=>{
+if(players[id]){
+scene.remove(players[id])
+delete players[id]
+}
+})
+
+// ===================== UPDATE =====================
+function update(){
+
+const speed=0.15
+
+if(keys["w"])controls.moveForward(speed)
+if(keys["s"])controls.moveForward(-speed)
+if(keys["a"])controls.moveRight(-speed)
+if(keys["d"])controls.moveRight(speed)
+
+const pos=controls.getObject().position
+
+if(myId){
+socket.emit("move",{
+x:pos.x,
+y:pos.y,
+z:pos.z
+})
+}
+
+}
+
+// ===================== LOOP =====================
+function animate(){
+requestAnimationFrame(animate)
+update()
+renderer.render(scene,camera)
+}
+
+animate()
+
+</script>
+</body>
+</html>
