@@ -8,22 +8,6 @@
 body{
 margin:0;
 overflow:hidden;
-font-family:sans-serif;
-}
-
-#menu{
-position:absolute;
-top:0;
-left:0;
-right:0;
-bottom:0;
-display:flex;
-align-items:center;
-justify-content:center;
-background:#0008;
-color:white;
-font-size:30px;
-cursor:pointer;
 }
 
 canvas{
@@ -32,8 +16,6 @@ display:block;
 </style>
 </head>
 <body>
-
-<div id="menu">Click To Start</div>
 
 <script src="/socket.io/socket.io.js"></script>
 
@@ -44,15 +26,14 @@ import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.158/ex
 
 const socket = io()
 
-const menu = document.getElementById("menu")
-
-// scene
+// ================= SCENE =================
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x87CEEB)
 scene.fog = new THREE.Fog(0x87CEEB,20,100)
 
 const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000)
 
+// ================= RENDERER =================
 const renderer = new THREE.WebGLRenderer({antialias:true})
 renderer.setSize(window.innerWidth,window.innerHeight)
 document.body.appendChild(renderer.domElement)
@@ -63,38 +44,36 @@ camera.updateProjectionMatrix()
 renderer.setSize(window.innerWidth,window.innerHeight)
 })
 
-// lighting
+// ================= LIGHT =================
 const sun = new THREE.DirectionalLight(0xffffff,1)
 sun.position.set(10,20,10)
 scene.add(sun)
 
 scene.add(new THREE.AmbientLight(0xffffff,0.4))
 
-// controls
-const controls = new PointerLockControls(camera,document.body)
-
-menu.onclick = () => {
-controls.lock()
-}
-
-controls.addEventListener("lock",()=>{
-menu.style.display="none"
-})
-
-controls.addEventListener("unlock",()=>{
-menu.style.display="flex"
-})
+// ================= CONTROLS =================
+const controls = new PointerLockControls(camera, document.body)
 
 controls.getObject().position.set(0,10,10)
 scene.add(controls.getObject())
 
-// movement
+// try auto lock
+setTimeout(()=>{
+controls.lock()
+},100)
+
+// fallback click
+document.addEventListener("click",()=>{
+if(!controls.isLocked) controls.lock()
+})
+
+// ================= MOVEMENT =================
 let keys={}
 
 document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true)
 document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false)
 
-// world blocks
+// ================= BLOCKS =================
 const blocks={}
 function k(x,y,z){return x+","+y+","+z}
 
@@ -117,15 +96,17 @@ blocks[k(x,y,z)]=mesh
 }
 
 function removeBlock(x,y,z){
+
 const key=k(x,y,z)
 
 if(blocks[key]){
 scene.remove(blocks[key])
 delete blocks[key]
 }
+
 }
 
-// players
+// ================= PLAYERS =================
 let players={}
 let myId=null
 
@@ -140,7 +121,7 @@ scene.add(mesh)
 return mesh
 }
 
-// networking
+// ================= NETWORK =================
 socket.on("init",data=>{
 
 myId=data.id
@@ -201,10 +182,10 @@ createBlock(data.x,data.y,data.z,data.type)
 
 })
 
-// raycast
+// ================= RAYCAST =================
 const raycaster=new THREE.Raycaster()
 
-window.addEventListener("mousedown",e=>{
+window.addEventListener("mousedown",()=>{
 
 raycaster.setFromCamera({x:0,y:0},camera)
 
@@ -245,7 +226,7 @@ type:1
 
 })
 
-// movement update
+// ================= UPDATE =================
 function update(){
 
 const speed=0.15
@@ -269,7 +250,7 @@ z:pos.z
 
 }
 
-// loop
+// ================= LOOP =================
 function animate(){
 
 requestAnimationFrame(animate)
