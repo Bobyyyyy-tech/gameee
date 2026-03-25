@@ -1,438 +1,288 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Multiplayer Block Game</title>
-  <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #87ceeb; font-family: Arial, sans-serif; }
-    #ui {
-      position: fixed; inset: 0; pointer-events: none; color: white; text-shadow: 0 2px 4px rgba(0,0,0,.8);
-    }
-    #crosshair {
-      position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin-left: -6px; margin-top: -6px;
-    }
-    #crosshair::before, #crosshair::after {
-      content: ''; position: absolute; background: white;
-    }
-    #crosshair::before { left: 5px; top: 0; width: 2px; height: 12px; }
-    #crosshair::after { left: 0; top: 5px; width: 12px; height: 2px; }
-    #hud {
-      position: absolute; left: 16px; top: 14px; font-size: 14px; line-height: 1.45;
-      background: rgba(0,0,0,.28); padding: 10px 12px; border-radius: 10px;
-    }
-    #bar {
-      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
-      display: flex; gap: 8px;
-    }
-    .slot {
-      width: 48px; height: 48px; border: 2px solid rgba(255,255,255,.55); background: rgba(0,0,0,.32);
-      display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px;
-      border-radius: 10px;
-    }
-    .slot.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.2) inset; }
-    #start {
-      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.45); pointer-events: auto;
-    }
-    #panel {
-      width: min(420px, calc(100vw - 32px)); background: rgba(20,20,20,.88); color: white; border-radius: 18px; padding: 18px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-    }
-    #panel h1 { margin: 0 0 8px; font-size: 24px; }
-    #panel p { margin: 0 0 12px; color: #d9d9d9; font-size: 14px; }
-    #nameRow { display: flex; gap: 10px; }
-    #nameInput {
-      flex:1; padding: 12px; border-radius: 10px; border: none; outline: none; font-size: 14px;
-    }
-    #startBtn {
-      padding: 12px 14px; border-radius: 10px; border: none; background: white; color: black; font-weight: 700; cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Minecraft Multiplayer</title>
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+font-family:sans-serif;
+}
+
+#menu{
+position:absolute;
+top:0;
+left:0;
+right:0;
+bottom:0;
+display:flex;
+align-items:center;
+justify-content:center;
+background:#0008;
+color:white;
+font-size:30px;
+cursor:pointer;
+}
+
+canvas{
+display:block;
+}
+</style>
 </head>
 <body>
-  <div id="ui">
-    <div id="hud">Connecting...</div>
-    <div id="crosshair"></div>
-    <div id="bar"></div>
-  </div>
-  <div id="start">
-    <div id="panel">
-      <h1>3D Multiplayer Block Game</h1>
-      <p>Click start, then click the page to lock your mouse. Move with WASD, jump with Space, break with left click, place with right click, and switch blocks with 1 to 5.</p>
-      <div id="nameRow">
-        <input id="nameInput" maxlength="16" placeholder="Your name" value="Builder" />
-        <button id="startBtn">Start</button>
-      </div>
-    </div>
-  </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+<div id="menu">Click To Start</div>
 
-    const socket = io();
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 18, 80);
+<script src="/socket.io/socket.io.js"></script>
 
-    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    document.body.appendChild(renderer.domElement);
+<script type="module">
 
-    const controls = new PointerLockControls(camera, document.body);
-    scene.add(controls.getObject());
-    controls.getObject().position.set(0, 18, 10);
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js"
+import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/controls/PointerLockControls.js"
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
-    const sun = new THREE.DirectionalLight(0xffffff, 0.75);
-    sun.position.set(1, 2, 0.8);
-    scene.add(ambient, sun);
+const socket = io()
 
-    const hud = document.getElementById('hud');
-    const startScreen = document.getElementById('start');
-    const startBtn = document.getElementById('startBtn');
-    const nameInput = document.getElementById('nameInput');
-    const bar = document.getElementById('bar');
+const menu = document.getElementById("menu")
 
-    const BLOCKS = {
-      1: { name: 'Grass', top: 0x68b84a, side: 0x7d5a3a, bottom: 0x7d5a3a },
-      2: { name: 'Dirt', top: 0x7d5a3a, side: 0x7d5a3a, bottom: 0x7d5a3a },
-      3: { name: 'Stone', top: 0x888888, side: 0x888888, bottom: 0x888888 },
-      4: { name: 'Log', top: 0xa47a45, side: 0x8f6536, bottom: 0xa47a45 },
-      5: { name: 'Leaves', top: 0x4f8d3f, side: 0x4f8d3f, bottom: 0x4f8d3f, transparent: true }
-    };
-    const buildOrder = [1, 2, 3, 4, 5];
-    let selected = 1;
+// scene
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x87CEEB)
+scene.fog = new THREE.Fog(0x87CEEB,20,100)
 
-    for (const id of buildOrder) {
-      const el = document.createElement('div');
-      el.className = 'slot' + (id === selected ? ' active' : '');
-      el.dataset.id = id;
-      el.textContent = id;
-      el.title = BLOCKS[id].name;
-      bar.appendChild(el);
-    }
-    function refreshBar() {
-      [...bar.children].forEach((el) => el.classList.toggle('active', Number(el.dataset.id) === selected));
-    }
+const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000)
 
-    const keys = Object.create(null);
-    let myId = null;
-    let worldArray = [];
-    const worldMap = new Map();
-    let worldMesh = null;
-    let colliders = [];
-    let dirtyWorld = false;
-    let remotePlayers = {};
-    let canJump = false;
-    let velocityY = 0;
-    const playerHeight = 1.7;
-    const playerRadius = 0.28;
-    const gravity = 0.012;
-    const speed = 0.095;
-    const raycaster = new THREE.Raycaster();
-    const clock = new THREE.Clock();
+const renderer = new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+document.body.appendChild(renderer.domElement)
 
-    function key(x, y, z) { return `${x},${y},${z}`; }
-    function getBlock(x, y, z) { return worldMap.get(key(x, y, z)) || 0; }
-    function setBlockLocal(x, y, z, t) {
-      const id = key(x, y, z);
-      if (t === 0) worldMap.delete(id);
-      else worldMap.set(id, t);
-      dirtyWorld = true;
-    }
+window.addEventListener("resize",()=>{
+camera.aspect = window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+renderer.setSize(window.innerWidth,window.innerHeight)
+})
 
-    function colorToRGB(hex, shade = 1) {
-      const c = new THREE.Color(hex);
-      return [c.r * shade, c.g * shade, c.b * shade];
-    }
+// lighting
+const sun = new THREE.DirectionalLight(0xffffff,1)
+sun.position.set(10,20,10)
+scene.add(sun)
 
-    function pushFace(pos, norm, cols, x, y, z, dir, block) {
-      const s = 0.5;
-      const cfg = BLOCKS[block];
-      const colHex = dir === 2 ? cfg.top : dir === 3 ? cfg.bottom : cfg.side;
-      const shade = dir === 2 ? 1.0 : dir === 3 ? 0.62 : (dir === 4 || dir === 5 ? 0.75 : 0.85);
-      const c = colorToRGB(colHex, shade);
-      let verts;
-      if (dir === 0) verts = [[x+s,y-s,z-s],[x+s,y+s,z-s],[x+s,y+s,z+s],[x+s,y-s,z+s]];
-      else if (dir === 1) verts = [[x-s,y-s,z+s],[x-s,y+s,z+s],[x-s,y+s,z-s],[x-s,y-s,z-s]];
-      else if (dir === 2) verts = [[x-s,y+s,z+s],[x+s,y+s,z+s],[x+s,y+s,z-s],[x-s,y+s,z-s]];
-      else if (dir === 3) verts = [[x-s,y-s,z-s],[x+s,y-s,z-s],[x+s,y-s,z+s],[x-s,y-s,z+s]];
-      else if (dir === 4) verts = [[x+s,y-s,z+s],[x+s,y+s,z+s],[x-s,y+s,z+s],[x-s,y-s,z+s]];
-      else verts = [[x-s,y-s,z-s],[x-s,y+s,z-s],[x+s,y+s,z-s],[x+s,y-s,z-s]];
+scene.add(new THREE.AmbientLight(0xffffff,0.4))
 
-      const tri = [0,1,2,0,2,3];
-      for (const i of tri) {
-        const v = verts[i];
-        pos.push(v[0], v[1], v[2]);
-        norm.push(...(dir === 0 ? [1,0,0] : dir === 1 ? [-1,0,0] : dir === 2 ? [0,1,0] : dir === 3 ? [0,-1,0] : dir === 4 ? [0,0,1] : [0,0,-1]));
-        cols.push(c[0], c[1], c[2]);
-      }
-    }
+// controls
+const controls = new PointerLockControls(camera,document.body)
 
-    function rebuildWorldMesh() {
-      dirtyWorld = false;
-      if (worldMesh) {
-        scene.remove(worldMesh);
-        worldMesh.geometry.dispose();
-        worldMesh.material.dispose();
-      }
-      colliders = [];
-      const pos = [], norm = [], cols = [];
-      for (const [id, type] of worldMap.entries()) {
-        const [x, y, z] = id.split(',').map(Number);
-        const transparent = !!BLOCKS[type]?.transparent;
-        const neigh = [
-          getBlock(x+1,y,z), getBlock(x-1,y,z), getBlock(x,y+1,z), getBlock(x,y-1,z), getBlock(x,y,z+1), getBlock(x,y,z-1)
-        ];
-        for (let dir = 0; dir < 6; dir++) {
-          const nType = neigh[dir];
-          if (nType === 0 || (transparent && nType !== type)) {
-            pushFace(pos, norm, cols, x, y, z, dir, type);
-          }
-        }
-        colliders.push(new THREE.Box3(
-          new THREE.Vector3(x - 0.5, y - 0.5, z - 0.5),
-          new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5)
-        ));
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-      geo.computeBoundingSphere();
-      const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
-      worldMesh = new THREE.Mesh(geo, mat);
-      scene.add(worldMesh);
-    }
+menu.onclick = () => {
+controls.lock()
+}
 
-    function makeNameTexture(name) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.roundRect?.(4, 10, 248, 44, 10);
-      ctx.fillRect(4, 10, 248, 44);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(name, 128, 32);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      return tex;
-    }
+controls.addEventListener("lock",()=>{
+menu.style.display="none"
+})
 
-    function createRemotePlayer(id, data) {
-      const group = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.5), new THREE.MeshLambertMaterial({ color: 0x45c8ff }));
-      body.position.y = 0.9;
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), new THREE.MeshLambertMaterial({ color: 0xffd6b0 }));
-      head.position.y = 2.1;
-      const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeNameTexture(data.name || 'Player'), transparent: true }));
-      tag.position.set(0, 3.0, 0);
-      tag.scale.set(2.6, 0.65, 1);
-      group.add(body, head, tag);
-      group.position.set(data.x || 0, Math.max(0, (data.y || 0) - playerHeight), data.z || 0);
-      scene.add(group);
-      remotePlayers[id] = { group, tag, target: new THREE.Vector3(group.position.x, group.position.y, group.position.z) };
-    }
+controls.addEventListener("unlock",()=>{
+menu.style.display="flex"
+})
 
-    function removeRemotePlayer(id) {
-      const entry = remotePlayers[id];
-      if (!entry) return;
-      scene.remove(entry.group);
-      entry.tag.material.map?.dispose();
-      entry.tag.material.dispose();
-      delete remotePlayers[id];
-    }
+controls.getObject().position.set(0,10,10)
+scene.add(controls.getObject())
 
-    function updateRemoteName(id, name) {
-      const entry = remotePlayers[id];
-      if (!entry) return;
-      entry.tag.material.map?.dispose();
-      entry.tag.material.map = makeNameTexture(name);
-      entry.tag.material.needsUpdate = true;
-    }
+// movement
+let keys={}
 
-    function tryMove(dx, dz) {
-      const pos = controls.getObject().position;
-      pos.x += dx;
-      if (intersectsPlayer()) pos.x -= dx;
-      pos.z += dz;
-      if (intersectsPlayer()) pos.z -= dz;
-    }
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true)
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false)
 
-    function intersectsPlayer() {
-      const pos = controls.getObject().position;
-      const box = new THREE.Box3(
-        new THREE.Vector3(pos.x - playerRadius, pos.y - playerHeight, pos.z - playerRadius),
-        new THREE.Vector3(pos.x + playerRadius, pos.y, pos.z + playerRadius)
-      );
-      for (const c of colliders) if (box.intersectsBox(c)) return true;
-      return false;
-    }
+// world blocks
+const blocks={}
+function k(x,y,z){return x+","+y+","+z}
 
-    function updatePhysics(dt) {
-      const dir = new THREE.Vector3();
-      if (keys['KeyW']) dir.z -= 1;
-      if (keys['KeyS']) dir.z += 1;
-      if (keys['KeyA']) dir.x -= 1;
-      if (keys['KeyD']) dir.x += 1;
-      if (dir.lengthSq() > 0) dir.normalize();
+const materials={
+1:new THREE.MeshLambertMaterial({color:0x55aa33}),
+2:new THREE.MeshLambertMaterial({color:0x8B4513})
+}
 
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
-      forward.y = 0;
-      forward.normalize();
-      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
-      const move = forward.multiplyScalar(-dir.z * speed * dt * 60).add(right.multiplyScalar(dir.x * speed * dt * 60));
-      tryMove(move.x, move.z);
+function createBlock(x,y,z,type){
 
-      velocityY -= gravity * dt * 60;
-      controls.getObject().position.y += velocityY * dt * 60;
-      if (intersectsPlayer()) {
-        if (velocityY < 0) canJump = true;
-        while (intersectsPlayer()) controls.getObject().position.y += velocityY < 0 ? 0.02 : -0.02;
-        velocityY = 0;
-      } else {
-        canJump = false;
-      }
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(1,1,1),
+materials[type]
+)
 
-      if (controls.getObject().position.y < -10) {
-        controls.getObject().position.set(0, 22, 0);
-        velocityY = 0;
-      }
-    }
+mesh.position.set(x,y,z)
+scene.add(mesh)
 
-    function breakBlock() {
-      if (!worldMesh) return;
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const hits = raycaster.intersectObject(worldMesh, false);
-      if (!hits.length) return;
-      const p = hits[0].point.clone().addScaledVector(hits[0].face.normal, -0.01).floor();
-      socket.emit('blockUpdate', { x: p.x, y: p.y, z: p.z, type: 0 });
-    }
+blocks[k(x,y,z)]=mesh
+}
 
-    function placeBlock() {
-      if (!worldMesh) return;
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const hits = raycaster.intersectObject(worldMesh, false);
-      if (!hits.length) return;
-      const p = hits[0].point.clone().addScaledVector(hits[0].face.normal, 0.51).floor();
-      const me = controls.getObject().position;
-      const playerBox = new THREE.Box3(
-        new THREE.Vector3(me.x - playerRadius, me.y - playerHeight, me.z - playerRadius),
-        new THREE.Vector3(me.x + playerRadius, me.y, me.z + playerRadius)
-      );
-      const blockBox = new THREE.Box3(new THREE.Vector3(p.x, p.y, p.z), new THREE.Vector3(p.x + 1, p.y + 1, p.z + 1));
-      if (playerBox.intersectsBox(blockBox)) return;
-      socket.emit('blockUpdate', { x: p.x, y: p.y, z: p.z, type: selected });
-    }
+function removeBlock(x,y,z){
+const key=k(x,y,z)
 
-    window.addEventListener('resize', () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
+if(blocks[key]){
+scene.remove(blocks[key])
+delete blocks[key]
+}
+}
 
-    document.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-      if (/Digit[1-5]/.test(e.code)) {
-        selected = Number(e.code.replace('Digit', ''));
-        refreshBar();
-      }
-      if (e.code === 'Space' && canJump) {
-        velocityY = 0.24;
-        canJump = false;
-      }
-    });
-    document.addEventListener('keyup', (e) => { keys[e.code] = false; });
-    document.addEventListener('mousedown', (e) => {
-      if (!controls.isLocked) return;
-      if (e.button === 0) breakBlock();
-    });
-    document.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      if (!controls.isLocked) return;
-      placeBlock();
-    });
+// players
+let players={}
+let myId=null
 
-    startBtn.addEventListener('click', () => {
-      startScreen.style.display = 'none';
-      controls.lock();
-      const n = nameInput.value.trim().slice(0, 16);
-      if (n) socket.emit('setName', n);
-    });
+function createPlayer(){
 
-    socket.on('init', (data) => {
-      myId = data.id;
-      worldMap.clear();
-      for (const [x, y, z, t] of data.world) worldMap.set(key(x, y, z), t);
-      rebuildWorldMesh();
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(1,2,1),
+new THREE.MeshLambertMaterial({color:0x00ffff})
+)
 
-      for (const id in remotePlayers) removeRemotePlayer(id);
-      for (const id in data.players) {
-        if (id !== myId) createRemotePlayer(id, data.players[id]);
-      }
+scene.add(mesh)
+return mesh
+}
 
-      const me = data.players[myId];
-      if (me) {
-        controls.getObject().position.set(me.x, me.y, me.z);
-      }
-      hud.textContent = 'Connected. Click to lock mouse.';
-    });
+// networking
+socket.on("init",data=>{
 
-    socket.on('playerJoined', ({ id, player }) => {
-      if (id === myId) return;
-      createRemotePlayer(id, player);
-    });
+myId=data.id
 
-    socket.on('playerMoved', (data) => {
-      const entry = remotePlayers[data.id];
-      if (!entry) return;
-      entry.target.set(data.x, Math.max(0, data.y - playerHeight), data.z);
-      entry.group.rotation.y = data.yaw || 0;
-    });
+for(let w in data.world){
 
-    socket.on('playerRenamed', ({ id, name }) => {
-      if (id !== myId && remotePlayers[id]) updateRemoteName(id, name);
-    });
+const [x,y,z]=w.split(",").map(Number)
+createBlock(x,y,z,data.world[w])
 
-    socket.on('playerLeft', (id) => removeRemotePlayer(id));
+}
 
-    socket.on('blockUpdate', ({ x, y, z, type }) => {
-      setBlockLocal(x, y, z, type);
-    });
+for(let id in data.players){
 
-    function animate() {
-      requestAnimationFrame(animate);
-      const dt = Math.min(clock.getDelta(), 0.05);
-      updatePhysics(dt);
+players[id]=createPlayer()
 
-      if (dirtyWorld) rebuildWorldMesh();
+}
 
-      for (const id in remotePlayers) {
-        const p = remotePlayers[id];
-        p.group.position.lerp(p.target, 0.18);
-        p.tag.quaternion.copy(camera.quaternion);
-      }
+})
 
-      if (myId) {
-        const p = controls.getObject().position;
-        const yaw = controls.getObject().rotation.y;
-        socket.emit('move', { x: p.x, y: p.y, z: p.z, yaw });
-        hud.textContent = `X ${p.x.toFixed(1)}  Y ${p.y.toFixed(1)}  Z ${p.z.toFixed(1)} | Block: ${BLOCKS[selected].name}`;
-      }
+socket.on("playerMoved",data=>{
 
-      renderer.render(scene, camera);
-    }
-    animate();
-  </script>
+if(players[data.id]){
+
+players[data.id].position.set(data.x,data.y,data.z)
+
+}
+
+})
+
+socket.on("playerJoined",data=>{
+
+players[data.id]=createPlayer()
+
+})
+
+socket.on("playerLeft",id=>{
+
+if(players[id]){
+
+scene.remove(players[id])
+delete players[id]
+
+}
+
+})
+
+socket.on("blockUpdate",data=>{
+
+if(data.type===0){
+
+removeBlock(data.x,data.y,data.z)
+
+}else{
+
+createBlock(data.x,data.y,data.z,data.type)
+
+}
+
+})
+
+// raycast
+const raycaster=new THREE.Raycaster()
+
+window.addEventListener("mousedown",e=>{
+
+raycaster.setFromCamera({x:0,y:0},camera)
+
+const hits=raycaster.intersectObjects(Object.values(blocks))
+
+if(hits.length>0){
+
+const p=hits[0].object.position
+
+socket.emit("blockUpdate",{x:p.x,y:p.y,z:p.z,type:0})
+
+}
+
+})
+
+window.addEventListener("contextmenu",e=>{
+
+e.preventDefault()
+
+raycaster.setFromCamera({x:0,y:0},camera)
+
+const hits=raycaster.intersectObjects(Object.values(blocks))
+
+if(hits.length>0){
+
+const hit=hits[0]
+const p=hit.object.position
+const n=hit.face.normal
+
+socket.emit("blockUpdate",{
+x:p.x+n.x,
+y:p.y+n.y,
+z:p.z+n.z,
+type:1
+})
+
+}
+
+})
+
+// movement update
+function update(){
+
+const speed=0.15
+
+if(keys["w"])controls.moveForward(speed)
+if(keys["s"])controls.moveForward(-speed)
+if(keys["a"])controls.moveRight(-speed)
+if(keys["d"])controls.moveRight(speed)
+
+const pos=controls.getObject().position
+
+if(myId){
+
+socket.emit("move",{
+x:pos.x,
+y:pos.y,
+z:pos.z
+})
+
+}
+
+}
+
+// loop
+function animate(){
+
+requestAnimationFrame(animate)
+
+update()
+
+renderer.render(scene,camera)
+
+}
+
+animate()
+
+</script>
+
 </body>
 </html>
